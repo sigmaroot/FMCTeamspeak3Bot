@@ -147,23 +147,24 @@ public class Main {
 
             @Override
             public void onClientJoin(ClientJoinEvent e) {
-                if (e.getReasonId() > 0) {
-                    return;
-                }
                 String cname = e.getClientNickname();
                 String cuid = e.getUniqueClientIdentifier();
                 int cid = e.getClientId();
-                ClientInfo cinfo = api.getClientByUId(cuid);
-                int cservergroups[] = cinfo.getServerGroups();
-                for (int i = 0; i < cservergroups.length; i++) {
-                    if (cservergroups[i] == ts3_membergroup) {
-                        return;
+                try {
+                    ClientInfo cinfo = api.getClientByUId(cuid);
+                    int cservergroups[] = cinfo.getServerGroups();
+                    for (int i = 0; i < cservergroups.length; i++) {
+                        if (cservergroups[i] == ts3_membergroup) {
+                            return;
+                        }
                     }
-                }
-                api.pokeClient(cid, "Hallo " + cname
-                        + "! Ich habe dir eine Nachricht wegen unseren Nutzungsbedingungen geschickt!");
-                for (int i = 0; i < termsofuse.size(); i++) {
-                    api.sendPrivateMessage(cid, termsofuse.get(i));
+                    api.pokeClient(cid, "Hallo " + cname
+                            + "! Ich habe dir eine Nachricht wegen unseren Nutzungsbedingungen geschickt!");
+                    for (int i = 0; i < termsofuse.size(); i++) {
+                        api.sendPrivateMessage(cid, termsofuse.get(i));
+                    }
+                } catch (Exception exception) {
+                    // TODO: handle exception
                 }
             }
 
