@@ -34,12 +34,12 @@ public class Main {
     private static int ts3_termlength = 0;
     private static ArrayList<String> termsofuse = new ArrayList<String>();
 
-    private static void writeDB(String uid, int id, String ip) {
+    private static void writeDB(int id, String uid, String nick, String ip) {
         try (Connection conn = DriverManager.getConnection("jdbc:mysql://" + mysql_host + ":" + mysql_port + "/"
                 + mysql_database + "?useSSL=false&serverTimezone=UTC", mysql_user, mysql_password);
                 Statement stmt = conn.createStatement();) {
-            String strInsert = "INSERT INTO " + mysql_table + " VALUES (NULL, NULL, '" + uid + "', "
-                    + String.valueOf(id) + ", '" + ip + "')";
+            String strInsert = "INSERT INTO " + mysql_table + " VALUES (NULL, NULL, " + String.valueOf(id) + ", '" + uid
+                    + "', '" + nick + "', '" + ip + "')";
             stmt.executeUpdate(strInsert);
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -124,7 +124,7 @@ public class Main {
                     if (ts3_addguestgroup) {
                         api.addClientToServerGroup(ts3_guestgroup, cdbid);
                     }
-                    writeDB(cinfo.getUniqueIdentifier(), cinfo.getDatabaseId(), cinfo.getIp());
+                    writeDB(cinfo.getDatabaseId(), cinfo.getUniqueIdentifier(), cinfo.getNickname(), cinfo.getIp());
                 } else {
                     api.sendPrivateMessage(invokerid, "Du musst die Nutzungsbedingungen mit \"AKZEPTIEREN\" annehmen!");
                 }
