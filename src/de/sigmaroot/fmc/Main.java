@@ -29,6 +29,8 @@ public class Main {
     private static String ts3_password = "";
     private static String ts3_nickname = "";
     private static int ts3_membergroup = 0;
+    private static boolean ts3_addguestgroup = false;
+    private static int ts3_guestgroup = 0;
     private static int ts3_termlength = 0;
     private static ArrayList<String> termsofuse = new ArrayList<String>();
 
@@ -64,6 +66,8 @@ public class Main {
             ts3_password = String.valueOf(iniFile.get("teamspeak", "password"));
             ts3_nickname = String.valueOf(iniFile.get("teamspeak", "nickname"));
             ts3_membergroup = Integer.valueOf(iniFile.get("teamspeak", "membergroup"));
+            ts3_addguestgroup = Boolean.valueOf(iniFile.get("teamspeak", "addguestgroup"));
+            ts3_guestgroup = Integer.valueOf(iniFile.get("teamspeak", "guestgroup"));
             ts3_termlength = Integer.valueOf(iniFile.get("terms", "length"));
             for (int i = 1; i <= ts3_termlength; i++) {
                 termsofuse.add(String.valueOf(iniFile.get("terms", "term" + String.valueOf(i))));
@@ -117,6 +121,9 @@ public class Main {
                 if (e.getMessage().equalsIgnoreCase("AKZEPTIEREN")) {
                     api.sendPrivateMessage(invokerid, "Vielen Dank und viel Spaß auf unserem TS3!");
                     api.addClientToServerGroup(ts3_membergroup, cdbid);
+                    if (ts3_addguestgroup) {
+                        api.addClientToServerGroup(ts3_guestgroup, cdbid);
+                    }
                     writeDB(cinfo.getUniqueIdentifier(), cinfo.getDatabaseId(), cinfo.getIp());
                 } else {
                     api.sendPrivateMessage(invokerid, "Du musst die Nutzungsbedingungen mit \"AKZEPTIEREN\" annehmen!");
@@ -140,6 +147,9 @@ public class Main {
 
             @Override
             public void onClientJoin(ClientJoinEvent e) {
+                if (e.getReasonId() > 0) {
+                    return;
+                }
                 String cname = e.getClientNickname();
                 String cuid = e.getUniqueClientIdentifier();
                 int cid = e.getClientId();
