@@ -147,7 +147,6 @@ public class Main {
 
             @Override
             public void onClientJoin(ClientJoinEvent e) {
-                String cname = e.getClientNickname();
                 String cuid = e.getUniqueClientIdentifier();
                 int cid = e.getClientId();
                 try {
@@ -158,8 +157,8 @@ public class Main {
                             return;
                         }
                     }
-                    api.pokeClient(cid, "Hallo " + cname
-                            + "! Ich habe dir eine Nachricht wegen unseren Nutzungsbedingungen geschickt!");
+                    api.pokeClient(cid,
+                            "Hallo! Ich habe dir eine Nachricht wegen unseren Nutzungsbedingungen geschickt!");
                     for (int i = 0; i < termsofuse.size(); i++) {
                         api.sendPrivateMessage(cid, termsofuse.get(i));
                     }
