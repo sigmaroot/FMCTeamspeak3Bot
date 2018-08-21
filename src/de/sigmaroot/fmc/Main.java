@@ -6,6 +6,8 @@ import com.github.theholywaffle.teamspeak3.TS3Query;
 import com.github.theholywaffle.teamspeak3.api.TextMessageTargetMode;
 import com.github.theholywaffle.teamspeak3.api.event.*;
 import com.github.theholywaffle.teamspeak3.api.event.TextMessageEvent;
+import com.github.theholywaffle.teamspeak3.api.reconnect.ConnectionHandler;
+import com.github.theholywaffle.teamspeak3.api.reconnect.ReconnectStrategy;
 import com.github.theholywaffle.teamspeak3.api.wrapper.ClientInfo;
 
 import java.io.File;
@@ -80,128 +82,145 @@ public class Main {
         config.setHost(ts3_ip);
         config.setEnableCommunicationsLogging(enable_debug);
 
+        config.setReconnectStrategy(ReconnectStrategy.exponentialBackoff());
+
+        config.setConnectionHandler(new ConnectionHandler() {
+
+            @Override
+            public void onConnect(TS3Query ts3Query) {
+                final TS3Api api = ts3Query.getApi();
+                api.login(ts3_login, ts3_password);
+                api.selectVirtualServerById(1);
+                api.setNickname(ts3_nickname);
+                api.sendServerMessage(ts3_nickname + " ist online!");
+                api.registerAllEvents();
+                api.addTS3Listeners(new TS3Listener() {
+
+                    @Override
+                    public void onTextMessage(TextMessageEvent e) {
+                        int invokerid = e.getInvokerId();
+                        int botid = api.whoAmI().getId();
+                        if (invokerid == botid) {
+                            return;
+                        }
+                        if (e.getTargetMode() == TextMessageTargetMode.CHANNEL) {
+                            if (e.getMessage().equalsIgnoreCase("pingbot")) {
+                                api.sendPrivateMessage(invokerid, "Ich bin anwesend!");
+                            }
+                        }
+                        if (e.getTargetMode() != TextMessageTargetMode.CLIENT) {
+                            return;
+                        }
+                        if (e.getTargetClientId() != botid) {
+                            return;
+                        }
+                        ClientInfo cinfo = api.getClientByUId(e.getInvokerUniqueId());
+                        int cdbid = cinfo.getDatabaseId();
+                        int cservergroups[] = cinfo.getServerGroups();
+                        for (int i = 0; i < cservergroups.length; i++) {
+                            if (cservergroups[i] == ts3_membergroup) {
+                                api.sendPrivateMessage(invokerid,
+                                        "Du hast die Nutzungsbedingungen bereits angenommen!");
+                                return;
+                            }
+                        }
+                        if (e.getMessage().equalsIgnoreCase("AKZEPTIEREN")) {
+                            api.sendPrivateMessage(invokerid, "Vielen Dank und viel Spaß auf unserem TS3!");
+                            api.addClientToServerGroup(ts3_membergroup, cdbid);
+                            if (ts3_addguestgroup) {
+                                api.addClientToServerGroup(ts3_guestgroup, cdbid);
+                            }
+                            writeDB(cinfo.getDatabaseId(), cinfo.getUniqueIdentifier(), cinfo.getNickname(),
+                                    cinfo.getIp());
+                        } else {
+                            api.sendPrivateMessage(invokerid,
+                                    "Du musst die Nutzungsbedingungen mit \"AKZEPTIEREN\" annehmen!");
+                        }
+                    }
+
+                    @Override
+                    public void onServerEdit(ServerEditedEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onClientMoved(ClientMovedEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onClientLeave(ClientLeaveEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onClientJoin(ClientJoinEvent e) {
+                        String cuid = e.getUniqueClientIdentifier();
+                        int cid = e.getClientId();
+                        try {
+                            ClientInfo cinfo = api.getClientByUId(cuid);
+                            int cservergroups[] = cinfo.getServerGroups();
+                            for (int i = 0; i < cservergroups.length; i++) {
+                                if (cservergroups[i] == ts3_membergroup) {
+                                    return;
+                                }
+                            }
+                            api.pokeClient(cid,
+                                    "Hallo! Ich habe dir eine Nachricht wegen unseren Nutzungsbedingungen geschickt!");
+                            for (int i = 0; i < termsofuse.size(); i++) {
+                                api.sendPrivateMessage(cid, termsofuse.get(i));
+                            }
+                        } catch (Exception exception) {
+                            // TODO: handle exception
+                        }
+                    }
+
+                    @Override
+                    public void onChannelEdit(ChannelEditedEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onChannelDescriptionChanged(ChannelDescriptionEditedEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onChannelCreate(ChannelCreateEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onChannelDeleted(ChannelDeletedEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onChannelMoved(ChannelMovedEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onChannelPasswordChanged(ChannelPasswordChangedEvent e) {
+                        // ...
+                    }
+
+                    @Override
+                    public void onPrivilegeKeyUsed(PrivilegeKeyUsedEvent e) {
+                        // ...
+                    }
+                });
+            }
+
+            @Override
+            public void onDisconnect(TS3Query ts3Query) {
+                // Nothing
+            }
+        });
+
         final TS3Query query = new TS3Query(config);
         query.connect();
 
-        final TS3Api api = query.getApi();
-        api.login(ts3_login, ts3_password);
-        api.selectVirtualServerById(1);
-        api.setNickname(ts3_nickname);
-        api.sendServerMessage(ts3_nickname + " ist online!");
-        api.registerAllEvents();
-        api.addTS3Listeners(new TS3Listener() {
-
-            @Override
-            public void onTextMessage(TextMessageEvent e) {
-                int invokerid = e.getInvokerId();
-                int botid = api.whoAmI().getId();
-                if (invokerid == botid) {
-                    return;
-                }
-                if (e.getTargetMode() == TextMessageTargetMode.CHANNEL) {
-                    if (e.getMessage().equalsIgnoreCase("pingbot")) {
-                        api.sendPrivateMessage(invokerid, "Ich bin anwesend!");
-                    }
-                }
-                if (e.getTargetMode() != TextMessageTargetMode.CLIENT) {
-                    return;
-                }
-                if (e.getTargetClientId() != botid) {
-                    return;
-                }
-                ClientInfo cinfo = api.getClientByUId(e.getInvokerUniqueId());
-                int cdbid = cinfo.getDatabaseId();
-                int cservergroups[] = cinfo.getServerGroups();
-                for (int i = 0; i < cservergroups.length; i++) {
-                    if (cservergroups[i] == ts3_membergroup) {
-                        api.sendPrivateMessage(invokerid, "Du hast die Nutzungsbedingungen bereits angenommen!");
-                        return;
-                    }
-                }
-                if (e.getMessage().equalsIgnoreCase("AKZEPTIEREN")) {
-                    api.sendPrivateMessage(invokerid, "Vielen Dank und viel Spaß auf unserem TS3!");
-                    api.addClientToServerGroup(ts3_membergroup, cdbid);
-                    if (ts3_addguestgroup) {
-                        api.addClientToServerGroup(ts3_guestgroup, cdbid);
-                    }
-                    writeDB(cinfo.getDatabaseId(), cinfo.getUniqueIdentifier(), cinfo.getNickname(), cinfo.getIp());
-                } else {
-                    api.sendPrivateMessage(invokerid, "Du musst die Nutzungsbedingungen mit \"AKZEPTIEREN\" annehmen!");
-                }
-            }
-
-            @Override
-            public void onServerEdit(ServerEditedEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onClientMoved(ClientMovedEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onClientLeave(ClientLeaveEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onClientJoin(ClientJoinEvent e) {
-                String cuid = e.getUniqueClientIdentifier();
-                int cid = e.getClientId();
-                try {
-                    ClientInfo cinfo = api.getClientByUId(cuid);
-                    int cservergroups[] = cinfo.getServerGroups();
-                    for (int i = 0; i < cservergroups.length; i++) {
-                        if (cservergroups[i] == ts3_membergroup) {
-                            return;
-                        }
-                    }
-                    api.pokeClient(cid,
-                            "Hallo! Ich habe dir eine Nachricht wegen unseren Nutzungsbedingungen geschickt!");
-                    for (int i = 0; i < termsofuse.size(); i++) {
-                        api.sendPrivateMessage(cid, termsofuse.get(i));
-                    }
-                } catch (Exception exception) {
-                    // TODO: handle exception
-                }
-            }
-
-            @Override
-            public void onChannelEdit(ChannelEditedEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onChannelDescriptionChanged(ChannelDescriptionEditedEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onChannelCreate(ChannelCreateEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onChannelDeleted(ChannelDeletedEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onChannelMoved(ChannelMovedEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onChannelPasswordChanged(ChannelPasswordChangedEvent e) {
-                // ...
-            }
-
-            @Override
-            public void onPrivilegeKeyUsed(PrivilegeKeyUsedEvent e) {
-                // ...
-            }
-        });
     }
 
 }
